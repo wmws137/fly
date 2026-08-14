@@ -70,14 +70,25 @@ export function createGame(canvas) {
   return game;
 }
 
+function canRestart(game) {
+  return (
+    game.state === 'result' &&
+    (performance.now() - game.resultTime) / 1000 >= RESULT_DELAY
+  );
+}
+
 function bindGlobalInput(game) {
   const onDown = (clientX, clientY) => {
     game.input.pointer = screenToCanvas(game.canvas, clientX, clientY);
-    if (game.state === 'title' || game.state === 'result') {
+    if (game.state === 'title') {
       enterReady(game);
       return;
     }
-    if (game.state === 'ready') {
+    if (game.state === 'result') {
+      if (canRestart(game)) enterReady(game);
+      return;
+    }
+    if (game.state === 'ready' && performance.now() >= game.input.ignoreReleaseUntil) {
       game.input.charging = true;
     }
   };
@@ -113,8 +124,15 @@ function bindGlobalInput(game) {
   window.addEventListener(
     'keydown',
     (e) => {
-      if (game.state === 'title' || game.state === 'result') {
+      if (game.state === 'title') {
         if (e.code === 'Space' || e.code === 'Enter') {
+          enterReady(game);
+          e.preventDefault();
+        }
+        return;
+      }
+      if (game.state === 'result') {
+        if ((e.code === 'Space' || e.code === 'Enter') && canRestart(game)) {
           enterReady(game);
           e.preventDefault();
         }
@@ -243,7 +261,7 @@ function update(game, dt, intent, ts) {
     return;
   }
 
-  if (state === 'result' && intent.restart) {
+  if (state === 'result' && intent.restart && canRestart(game)) {
     enterReady(game);
   }
 }
@@ -255,8 +273,8 @@ function draw(game) {
   drawWorld(ctx, world);
   drawLaunchPad(ctx, world);
   drawItems(ctx, world, items);
-  drawParticles(ctx, world, game.particles);
   drawPlayer(ctx, world, player);
+  drawParticles(ctx, world, game.particles);
   drawDashZones(ctx, state);
 
   if (state === 'ready') {

@@ -62,6 +62,7 @@ export function updateBuff(player, dt) {
     player.vx *= 0.95;
   } else if (b.type === 'rocket') {
     if (b.phase === 'burst') {
+      if (player.vy > -ROCKET_IMPULSE * 0.35) player.vy = -ROCKET_IMPULSE * 0.35;
       if (b.timeLeft <= ROCKET_GLIDE_DURATION) {
         b.phase = 'glide';
       }

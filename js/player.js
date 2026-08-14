@@ -1,4 +1,5 @@
 import {
+  CANVAS_H,
   CANVAS_W,
   INVENTORY_SIZE,
   INV_SLOT_H,
@@ -83,9 +84,11 @@ export function launchFromAim(player, holdTime, aimX, aimY) {
 
 export function screenToCanvas(canvas, clientX, clientY) {
   const rect = canvas.getBoundingClientRect();
+  const w = rect.width || CANVAS_W;
+  const h = rect.height || CANVAS_H;
   return {
-    x: ((clientX - rect.left) / rect.width) * CANVAS_W,
-    y: ((clientY - rect.top) / rect.height) * CANVAS_H,
+    x: ((clientX - rect.left) / w) * CANVAS_W,
+    y: ((clientY - rect.top) / h) * CANVAS_H,
   };
 }
 

@@ -147,7 +147,9 @@ function onPointerDown(state) {
     return;
   }
   if (gs === 'ready') {
-    state.charging = true;
+    if (performance.now() >= state.ignoreReleaseUntil) {
+      state.charging = true;
+    }
     return;
   }
   if (gs === 'result') {
