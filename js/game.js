@@ -5,14 +5,15 @@ import {
   MAX_HOLD,
   RESULT_DELAY,
 } from './config.js';
-import { createInput, markReadyInput, pollInput } from './input.js';
+import { createInput, markReadyInput, pollInput, releaseCharge, updatePointer } from './input.js';
 import { createItems, checkPickup, drawItems, resetItems, updateItems, useItem } from './items.js';
 import { createParticles, drawParticles, resetParticles, updateParticles } from './particles.js';
 import { applyDash, integratePlayer, updateBuff } from './physics.js';
 import {
+  clampLaunchAim,
   createPlayer,
   getHeightZhang,
-  launchFromAim,
+  launchFromAngle,
   resetPlayer,
   screenToCanvas,
   useInventorySlot,
@@ -59,11 +60,15 @@ export function createGame(canvas) {
     holdTime: 0,
     resultTime: 0,
     runHeight: 0,
+    launchAim: null,
     highScore: loadHighScore(),
     lastTs: 0,
   };
 
-  game.input = createInput(canvas, () => game.state);
+  game.input = createInput(canvas, () => game.state, () => ({
+    player: game.player,
+    cameraY: game.world.cameraY,
+  }));
   bindGlobalInput(game);
   resetRun(game);
   requestAnimationFrame((ts) => loop(game, ts));
@@ -93,14 +98,10 @@ function bindGlobalInput(game) {
     }
   };
 
-  const onUp = () => {
-    if (game.state === 'ready' && game.input.charging) {
-      if (performance.now() >= game.input.ignoreReleaseUntil) {
-        game.input.releaseLaunch = true;
-      }
-      game.input.charging = false;
-      game.input.pointerDown = false;
-    }
+  const onUp = (clientX, clientY) => {
+    if (game.state !== 'ready' || !game.input.charging) return;
+    if (clientY != null) updatePointer(game.input, clientX, clientY);
+    releaseCharge(game.input);
   };
 
   window.addEventListener(
@@ -116,7 +117,7 @@ function bindGlobalInput(game) {
     'mouseup',
     (e) => {
       if (e.button !== 0) return;
-      onUp();
+      onUp(e.clientX, e.clientY);
     },
     true,
   );
@@ -199,14 +200,21 @@ function update(game, dt, intent, ts) {
   }
 
   if (state === 'ready') {
+    game.launchAim = clampLaunchAim(
+      player,
+      game.input.pointer.x,
+      game.input.pointer.y,
+      world.cameraY,
+    );
     if (intent.charging) {
       game.holdTime += dt;
       if (game.holdTime > MAX_HOLD) game.holdTime = MAX_HOLD;
     }
-    if (intent.releaseLaunch && game.holdTime > 0.02) {
-      launchFromAim(player, game.holdTime, intent.aim.x, intent.aim.y, world.cameraY);
+    if (intent.releaseLaunch && intent.launchAngle != null && game.holdTime > 0.02) {
+      launchFromAngle(player, game.holdTime, intent.launchAngle);
       game.state = 'flying';
       game.holdTime = 0;
+      game.launchAim = null;
     }
     return;
   }
@@ -261,7 +269,9 @@ function draw(game) {
 
   if (state === 'ready') {
     drawChargeUi(ctx, player, game.holdTime, world.cameraY);
-    drawAimLine(ctx, player, game.input.pointer, world.cameraY);
+    if (game.launchAim) {
+      drawAimLine(ctx, player, game.launchAim, world.cameraY);
+    }
     drawHud(ctx, player, game.highScore);
     drawReadyHint(ctx);
   } else if (state === 'flying') {

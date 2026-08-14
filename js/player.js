@@ -97,12 +97,15 @@ export function clampLaunchAim(player, aimX, aimY, cameraY) {
   };
 }
 
-export function launchFromAim(player, holdTime, aimX, aimY, cameraY) {
-  const angle = resolveLaunchAngle(player, aimX, aimY, cameraY);
+export function launchFromAngle(player, holdTime, angle) {
   const t = Math.min(holdTime / MAX_HOLD, 1);
   const speed = MIN_LAUNCH_SPEED + (MAX_LAUNCH_SPEED - MIN_LAUNCH_SPEED) * t;
   player.vx = speed * Math.cos(angle);
   player.vy = -speed * Math.sin(angle);
+}
+
+export function launchFromAim(player, holdTime, aimX, aimY, cameraY) {
+  launchFromAngle(player, holdTime, resolveLaunchAngle(player, aimX, aimY, cameraY));
 }
 
 export function screenToCanvas(canvas, clientX, clientY) {

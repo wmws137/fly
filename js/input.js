@@ -7,13 +7,14 @@ import {
   LAUNCH_X,
   RESULT_DELAY,
 } from './config.js';
-import { getInventorySlotAt, screenToCanvas } from './player.js';
+import { getInventorySlotAt, resolveLaunchAngle, screenToCanvas } from './player.js';
 import { keysToTheta, wheelToTheta } from './physics.js';
 
-export function createInput(canvas, getState) {
+export function createInput(canvas, getState, getLaunchContext) {
   const state = {
     canvas,
     getState,
+    getLaunchContext,
     keys: new Set(),
     pointer: { x: CANVAS_W / 2, y: 200 },
     pointerDown: false,
@@ -25,6 +26,7 @@ export function createInput(canvas, getState) {
     useSlot: null,
     restart: false,
     releaseLaunch: false,
+    releaseAngle: null,
     startGame: false,
     ignoreReleaseUntil: 0,
   };
@@ -109,7 +111,30 @@ export function markReadyInput(input) {
   input.charging = false;
   input.pointerDown = false;
   input.releaseLaunch = false;
+  input.releaseAngle = null;
   input.ignoreReleaseUntil = performance.now() + 300;
+}
+
+export function updatePointer(input, clientX, clientY) {
+  input.pointer = screenToCanvas(input.canvas, clientX, clientY);
+}
+
+export function releaseCharge(input) {
+  if (!input.charging) return false;
+  if (performance.now() < input.ignoreReleaseUntil) return false;
+  const ctx = input.getLaunchContext?.();
+  if (ctx) {
+    input.releaseAngle = resolveLaunchAngle(
+      ctx.player,
+      input.pointer.x,
+      input.pointer.y,
+      ctx.cameraY,
+    );
+  }
+  input.releaseLaunch = true;
+  input.charging = false;
+  input.pointerDown = false;
+  return true;
 }
 
 function activateDash(state, theta) {
@@ -160,10 +185,7 @@ function onPointerDown(state) {
 }
 
 function tryRelease(state) {
-  if (performance.now() < state.ignoreReleaseUntil) return;
-  state.releaseLaunch = true;
-  state.charging = false;
-  state.pointerDown = false;
+  releaseCharge(state);
 }
 
 function onPointerUp(state) {
@@ -182,20 +204,26 @@ function onPointerUp(state) {
 }
 
 export function pollInput(input, gameState, resultElapsed) {
-  const out = {
-    charging: false,
-    releaseLaunch: false,
-    aim: { x: input.pointer.x, y: input.pointer.y },
-    dashFire: false,
-    dashTheta: null,
-    useSlot: input.useSlot,
-    restart: false,
-    startGame: input.startGame,
-  };
   const releaseLaunch = input.releaseLaunch;
+  const releaseAngle = input.releaseAngle;
+  const useSlot = input.useSlot;
+  const startGame = input.startGame;
   input.startGame = false;
   input.useSlot = null;
   input.releaseLaunch = false;
+  input.releaseAngle = null;
+
+  const out = {
+    charging: false,
+    releaseLaunch: false,
+    launchAngle: null,
+    aim: { x: input.pointer.x, y: input.pointer.y },
+    dashFire: false,
+    dashTheta: null,
+    useSlot,
+    restart: false,
+    startGame,
+  };
 
   if (gameState === 'title') {
     if (input.keys.has('Enter')) out.startGame = true;
@@ -205,7 +233,10 @@ export function pollInput(input, gameState, resultElapsed) {
   if (gameState === 'ready') {
     if (input.pointerDown) input.charging = true;
     out.charging = input.charging;
-    if (releaseLaunch) out.releaseLaunch = true;
+    if (releaseLaunch) {
+      out.releaseLaunch = true;
+      out.launchAngle = releaseAngle;
+    }
     return out;
   }
 

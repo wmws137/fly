@@ -16,6 +16,7 @@ import {
   createPlayer,
   getHeightZhang,
   launchFromAim,
+  launchFromAngle,
   resolveLaunchAngle,
 } from '../js/player.js';
 import { integratePlayer, wheelToTheta } from '../js/physics.js';
@@ -51,15 +52,13 @@ function cameraY(player) {
   assert.ok(angle <= LAUNCH_ANGLE_MAX + 0.01);
 }
 
-// 预览与发射角度一致
+// launchFromAngle 与 resolveLaunchAngle 一致
 {
   const p = createPlayer();
   const cam = cameraY(p);
-  const rawX = 50;
-  const rawY = 400;
-  const preview = clampLaunchAim(p, rawX, rawY, cam);
-  const launchAngle = resolveLaunchAngle(p, rawX, rawY, cam);
-  approx(preview.angle, launchAngle, 0.001);
+  const angle = resolveLaunchAngle(p, 50, 400, cam);
+  launchFromAngle(p, MAX_HOLD, angle);
+  approx(Math.atan2(-p.vy, p.vx), angle, 0.001);
 }
 
 // 上升比下落慢

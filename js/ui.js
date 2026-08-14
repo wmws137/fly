@@ -116,7 +116,10 @@ export function drawChargeUi(ctx, player, holdTime, cameraY) {
 
 export function drawAimLine(ctx, player, aim, cameraY) {
   const sy = playerScreenY(player, cameraY);
-  const clamped = clampLaunchAim(player, aim.x, aim.y, cameraY);
+  const clamped =
+    aim && aim.angle != null
+      ? aim
+      : clampLaunchAim(player, aim.x, aim.y, cameraY);
   const len = 72;
 
   ctx.strokeStyle = 'rgba(255,255,255,0.12)';
