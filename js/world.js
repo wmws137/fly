@@ -69,6 +69,14 @@ export function checkLanding(player) {
   return null;
 }
 
+/** 无道具超时：直接落到起跳地面，避免长时间空等 */
+export function forceLandOnGround(player) {
+  player.y = player.launchY + PLAYER_R;
+  player.vy = 0;
+  player.vx *= 0.3;
+  player.fallTime = 0;
+}
+
 function drawCloudLayer(ctx, world) {
   const scroll = world.cameraY * 0.2;
   ctx.fillStyle = 'rgba(255,255,255,0.18)';
@@ -129,9 +137,4 @@ export function drawLaunchPad(ctx, world) {
   const p = worldToScreen(world, CANVAS_W / 2 - 40, LAUNCH_Y);
   ctx.fillStyle = '#795548';
   ctx.fillRect(p.x, p.y - 4, 80, 8);
-  ctx.strokeStyle = 'rgba(255,255,255,0.35)';
-  ctx.lineWidth = 2;
-  ctx.beginPath();
-  ctx.arc(p.x + 40, p.y - 8, 14, 0, Math.PI * 2);
-  ctx.stroke();
 }

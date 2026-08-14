@@ -19,7 +19,7 @@ import {
   launchFromAngle,
   resolveLaunchAngle,
 } from '../js/player.js';
-import { integratePlayer, wheelToTheta } from '../js/physics.js';
+import { integratePlayer, applyDash, wheelToTheta } from '../js/physics.js';
 import { checkLanding } from '../js/world.js';
 
 function approx(a, b, eps = 1) {
@@ -61,6 +61,15 @@ function cameraY(player) {
   approx(Math.atan2(-p.vy, p.vx), angle, 0.001);
 }
 
+// 鼠标在玩家下方：左右分别 45° / 135°
+{
+  const p = createPlayer();
+  const cam = cameraY(p);
+  const sy = p.y - cam;
+  approx(resolveLaunchAngle(p, p.x + 80, sy + 60, cam), LAUNCH_ANGLE_MIN, 0.001);
+  approx(resolveLaunchAngle(p, p.x - 80, sy + 60, cam), LAUNCH_ANGLE_MAX, 0.001);
+}
+
 // 上升比下落慢
 {
   const up = createPlayer();
@@ -82,16 +91,34 @@ function cameraY(player) {
   approx(getHeightZhang(p), 10, 0.01);
 }
 
-// 滚轮向下无效
+// 滚轮向下：可识别方向，纯向下无冲量（只左右分量生效）
 {
-  assert.equal(wheelToTheta(0, 100), null);
+  const theta = wheelToTheta(0, 100);
+  assert.ok(theta !== null);
+  approx(Math.cos(theta), 0, 0.001);
+
+  const p = createPlayer();
+  applyDash(p, theta);
+  assert.equal(p.vx, 0);
+  assert.equal(p.vy, 0);
 }
 
-// 左上 45° 分量约 127
+// 滚轮右下：仅水平冲量
+{
+  const theta = wheelToTheta(80, 100);
+  const p = createPlayer();
+  applyDash(p, theta);
+  assert.ok(p.vx > 0);
+  assert.equal(p.vy, 0);
+}
+
+// 滚轮左上：仍有向上分量
 {
   const theta = wheelToTheta(-50, -50);
-  approx(Math.cos(theta) * 180, 127, 2);
-  approx(Math.sin(theta) * 180, 127, 2);
+  const p = createPlayer();
+  applyDash(p, theta);
+  assert.ok(p.vx < 0);
+  assert.ok(p.vy < 0);
 }
 
 // 触地 / 虚空

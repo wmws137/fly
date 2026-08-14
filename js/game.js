@@ -1,8 +1,11 @@
 import {
   CANVAS_H,
   CANVAS_W,
+  DT_MAX,
   LS_HIGH_SCORE,
   MAX_HOLD,
+  MIN_HOLD_LAUNCH,
+  NO_ITEM_FALL_LIMIT,
   RESULT_DELAY,
 } from './config.js';
 import { createInput, markReadyInput, pollInput, releaseCharge, resetDashInput, updatePointer } from './input.js';
@@ -13,6 +16,7 @@ import {
   clampLaunchAim,
   createPlayer,
   getHeightZhang,
+  hasFallSupport,
   launchFromAngle,
   resetPlayer,
   screenToCanvas,
@@ -23,6 +27,7 @@ import {
   drawChargeUi,
   drawDashZones,
   drawDebug,
+  drawDashWheel,
   drawHud,
   drawOverlay,
   drawPlayer,
@@ -35,6 +40,7 @@ import {
   createWorld,
   drawLaunchPad,
   drawWorld,
+  forceLandOnGround,
   resetWorld,
   updateCamera,
 } from './world.js';
@@ -61,6 +67,7 @@ export function createGame(canvas) {
     resultTime: 0,
     runHeight: 0,
     launchAim: null,
+    noItemFallTime: 0,
     highScore: loadHighScore(),
     lastTs: 0,
   };
@@ -93,7 +100,7 @@ function bindGlobalInput(game) {
       if (canRestart(game)) enterReady(game);
       return;
     }
-    if (game.state === 'ready' && performance.now() >= game.input.ignoreReleaseUntil) {
+    if (game.state === 'ready' && game.input.readyArmed && performance.now() >= game.input.ignoreReleaseUntil) {
       game.input.charging = true;
     }
   };
@@ -146,9 +153,10 @@ function bindGlobalInput(game) {
 
 function enterReady(game) {
   if (game.state !== 'title' && game.state !== 'result') return;
+  const fromResult = game.state === 'result';
   game.state = 'ready';
   resetRun(game);
-  markReadyInput(game.input);
+  markReadyInput(game.input, { armed: fromResult });
 }
 
 function loadHighScore() {
@@ -174,11 +182,12 @@ function resetRun(game) {
   resetParticles(game.particles);
   game.holdTime = 0;
   game.runHeight = 0;
+  game.noItemFallTime = 0;
 }
 
 function loop(game, ts) {
   if (!game.lastTs) game.lastTs = ts;
-  const dt = Math.min((ts - game.lastTs) / 1000, 1 / 30);
+  const dt = Math.min((ts - game.lastTs) / 1000, DT_MAX);
   game.lastTs = ts;
 
   const resultElapsed =
@@ -206,12 +215,13 @@ function update(game, dt, intent, ts) {
       game.input.pointer.x,
       game.input.pointer.y,
       world.cameraY,
+      game.holdTime,
     );
     if (intent.charging) {
       game.holdTime += dt;
       if (game.holdTime > MAX_HOLD) game.holdTime = MAX_HOLD;
     }
-    if (intent.releaseLaunch && intent.launchAngle != null && game.holdTime > 0.02) {
+    if (intent.releaseLaunch && intent.launchAngle != null && game.holdTime > MIN_HOLD_LAUNCH) {
       launchFromAngle(player, game.holdTime, intent.launchAngle);
       game.state = 'flying';
       game.holdTime = 0;
@@ -237,6 +247,16 @@ function update(game, dt, intent, ts) {
     updateItems(items, player);
     checkPickup(items, player, game.particles);
     updateParticles(game.particles, dt);
+
+    if (player.vy > 0 && !hasFallSupport(player)) {
+      game.noItemFallTime += dt;
+      if (game.noItemFallTime >= NO_ITEM_FALL_LIMIT) {
+        forceLandOnGround(player);
+        game.noItemFallTime = 0;
+      }
+    } else {
+      game.noItemFallTime = 0;
+    }
 
     const h = getHeightZhang(player);
     if (h > game.runHeight) game.runHeight = h;
@@ -271,13 +291,21 @@ function draw(game) {
 
   if (state === 'ready') {
     drawChargeUi(ctx, player, game.holdTime, world.cameraY);
-    if (game.launchAim) {
-      drawAimLine(ctx, player, game.launchAim, world.cameraY);
+    if (game.holdTime >= MIN_HOLD_LAUNCH && game.launchAim) {
+      drawAimLine(ctx, player, game.launchAim, world.cameraY, game.holdTime);
     }
     drawHud(ctx, player, game.highScore);
-    drawReadyHint(ctx);
+    drawReadyHint(ctx, player, world.cameraY, game.input.readyArmed);
   } else if (state === 'flying') {
     drawHud(ctx, player, game.highScore);
+    drawDashWheel(
+      ctx,
+      game.input.pointer,
+      game.input.dashAimTheta,
+      game.input.dashWheelHover,
+      game.input.dashWheelDown,
+      game.input.dashActive,
+    );
   } else if (state === 'title') {
     drawOverlay(
       ctx,
@@ -296,8 +324,8 @@ function draw(game) {
       ctx,
       '本局结束',
       [
-        `本局最高：${game.runHeight.toFixed(1)} 丈`,
-        `历史最高：${game.highScore.toFixed(1)} 丈`,
+        `本局最高：${game.runHeight.toFixed(1)} 米`,
+        `历史最高：${game.highScore.toFixed(1)} 米`,
         '用了 1 次弹射',
       ],
       sub,

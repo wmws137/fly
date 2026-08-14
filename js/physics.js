@@ -1,13 +1,17 @@
 import {
   CLOUD_DURATION,
   CLOUD_SPEED,
+  CLOUD_VX_DECAY,
   DASH_IMPULSE,
   FRICTION,
   GRAVITY_DOWN,
   GRAVITY_G,
   GRAVITY_UP,
-  ROCKET_GLIDE_DECAY,
+  ROCKET_BURST_DECAY,
+  ROCKET_BURST_DURATION,
+  ROCKET_BURST_MIN_VY_RATIO,
   ROCKET_GLIDE_DURATION,
+  ROCKET_GLIDE_MIN_FALL_VY,
   ROCKET_IMPULSE,
   TERMINAL_STRIP_RATIO,
   TERMINAL_VY_BASE,
@@ -15,6 +19,7 @@ import {
   TERMINAL_VY_RATE,
 } from './config.js';
 import { buffBlocksVerticalDash, setDashFlash } from './player.js';
+import { clampDashTheta } from './dashWheel.js';
 
 export function terminalVy(fallTime) {
   return Math.min(TERMINAL_VY_BASE + fallTime * TERMINAL_VY_RATE, TERMINAL_VY_MAX);
@@ -35,16 +40,31 @@ export function integratePlayer(player, dt) {
   if (player.y < player.minY) player.minY = player.y;
 
   if (player.vy > 0) player.fallTime += dt;
+
+  const b = player.buff;
+  if (
+    b?.type === 'cloud' &&
+    b.phase === 'glide' &&
+    ROCKET_GLIDE_MIN_FALL_VY > 0 &&
+    player.vy > ROCKET_GLIDE_MIN_FALL_VY
+  ) {
+    player.vy = ROCKET_GLIDE_MIN_FALL_VY;
+  }
 }
 
 export function applyDash(player, theta) {
   let dvx = DASH_IMPULSE * Math.cos(theta);
   let dvy = -DASH_IMPULSE * Math.sin(theta);
 
-  if (buffBlocksVerticalDash(player)) dvy = 0;
+  // 下半圆（向下）：只保留左右冲量，不施加向下动量
+  if (Math.sin(theta) < 0) {
+    dvy = 0;
+  } else {
+    if (buffBlocksVerticalDash(player)) dvy = 0;
 
-  const cap = terminalVy(player.fallTime);
-  if (player.vy >= cap * TERMINAL_STRIP_RATIO) dvy = 0;
+    const cap = terminalVy(player.fallTime);
+    if (player.vy >= cap * TERMINAL_STRIP_RATIO) dvy = 0;
+  }
 
   player.vx += dvx;
   player.vy += dvy;
@@ -58,18 +78,20 @@ export function updateBuff(player, dt) {
   b.timeLeft -= dt;
 
   if (b.type === 'cloud') {
-    player.vy = -CLOUD_SPEED;
-    player.vx *= 0.95;
-  } else if (b.type === 'rocket') {
     if (b.phase === 'burst') {
-      if (player.vy > -ROCKET_IMPULSE * 0.35) player.vy = -ROCKET_IMPULSE * 0.35;
-      if (b.timeLeft <= ROCKET_GLIDE_DURATION) {
+      player.vy *= ROCKET_BURST_DECAY;
+      if (player.vy > -ROCKET_IMPULSE * ROCKET_BURST_MIN_VY_RATIO) {
+        player.vy = -ROCKET_IMPULSE * ROCKET_BURST_MIN_VY_RATIO;
+      }
+      if (b.timeLeft <= ROCKET_GLIDE_DURATION && b.phase === 'burst') {
         b.phase = 'glide';
       }
-    } else {
-      player.vy *= ROCKET_GLIDE_DECAY;
-      if (player.vy > -80) player.vy = -80;
     }
+    // 滑翔：不固定 vy，重力与蹬风正常生效；下落上限见 integratePlayer
+  } else if (b.type === 'charm') {
+    // 神行符：持续直线上升
+    player.vy = -CLOUD_SPEED;
+    player.vx *= CLOUD_VX_DECAY;
   }
 
   if (b.timeLeft <= 0) player.buff = null;
@@ -77,29 +99,21 @@ export function updateBuff(player, dt) {
 
 export function startBuff(player, type) {
   if (type === 'cloud') {
-    player.buff = { type, timeLeft: CLOUD_DURATION };
-  } else if (type === 'rocket') {
     player.vy = -ROCKET_IMPULSE;
     player.buff = {
       type,
-      timeLeft: ROCKET_GLIDE_DURATION + 0.5,
+      timeLeft: ROCKET_BURST_DURATION + ROCKET_GLIDE_DURATION,
       phase: 'burst',
     };
+  } else if (type === 'charm') {
+    player.buff = { type, timeLeft: CLOUD_DURATION };
   }
 }
 
 export function wheelToTheta(deltaX, deltaY) {
-  let rawDx = deltaX;
-  let rawDy = -deltaY;
-  if (Math.abs(rawDx) + Math.abs(rawDy) < 1) return null;
-
-  if (rawDy < 0) {
-    if (Math.abs(rawDx) < 1) return null;
-    rawDy = 0;
-  }
-
-  let theta = Math.atan2(rawDy, rawDx);
-  return Math.max(0, Math.min(Math.PI, theta));
+  const rawDx = deltaX;
+  const rawDy = -deltaY;
+  return clampDashTheta(rawDx, rawDy);
 }
 
 export function keysToTheta(keys) {

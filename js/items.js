@@ -1,10 +1,16 @@
 import {
   CANVAS_H,
   CANVAS_W,
+  ITEM_INITIAL_COUNT,
+  ITEM_RESET_OFFSET,
+  ITEM_SEED_OFFSET,
   ITEM_SIZE,
   ITEM_SPAWN_DX,
   ITEM_SPAWN_DY_MAX,
   ITEM_SPAWN_DY_MIN,
+  ITEM_SPAWN_LOOKAHEAD,
+  ITEM_WEIGHT_CHARM,
+  ITEM_WEIGHT_CLOUD,
   PLAYER_R,
 } from './config.js';
 import { addToInventory, inventoryHasSpace } from './player.js';
@@ -22,14 +28,14 @@ export function createItems() {
 
 export function resetItems(items, player) {
   items.list = [];
-  items.nextSpawnY = player.y - 200;
+  items.nextSpawnY = player.y - ITEM_RESET_OFFSET;
   items.highestSpawned = player.y;
   seedItems(items, player.y);
 }
 
 function seedItems(items, fromY) {
-  let y = fromY - 120;
-  for (let i = 0; i < 12; i++) {
+  let y = fromY - ITEM_SEED_OFFSET;
+  for (let i = 0; i < ITEM_INITIAL_COUNT; i++) {
     spawnOne(items, y);
     y -= rand(ITEM_SPAWN_DY_MIN, ITEM_SPAWN_DY_MAX);
   }
@@ -39,15 +45,32 @@ function rand(a, b) {
   return a + Math.random() * (b - a);
 }
 
+/** 按各道具权重随机类型：P(i) = weight_i / Σweight */
+function pickItemType() {
+  const table = [
+    { type: 'cloud', weight: ITEM_WEIGHT_CLOUD },
+    { type: 'charm', weight: ITEM_WEIGHT_CHARM },
+  ];
+  const total = table.reduce((sum, entry) => sum + Math.max(0, entry.weight), 0);
+  if (total <= 0) return table[0].type;
+  let roll = Math.random() * total;
+  for (const entry of table) {
+    if (entry.weight <= 0) continue;
+    roll -= entry.weight;
+    if (roll < 0) return entry.type;
+  }
+  return table[table.length - 1].type;
+}
+
 function spawnOne(items, y) {
-  const type = Math.random() < 0.5 ? 'cloud' : 'rocket';
+  const type = pickItemType();
   const x = CANVAS_W / 2 + rand(-ITEM_SPAWN_DX, ITEM_SPAWN_DX);
   items.list.push({ type, x, y, w: ITEM_SIZE, h: ITEM_SIZE, taken: false });
   items.highestSpawned = Math.min(items.highestSpawned, y);
 }
 
 export function updateItems(items, player) {
-  while (player.y - 400 < items.highestSpawned) {
+  while (player.y - ITEM_SPAWN_LOOKAHEAD < items.highestSpawned) {
     const y = items.highestSpawned - rand(ITEM_SPAWN_DY_MIN, ITEM_SPAWN_DY_MAX);
     spawnOne(items, y);
   }
@@ -90,7 +113,7 @@ export function drawItems(ctx, world, items) {
       ctx.fillRect(s.x, s.y, it.w, it.h);
       ctx.fillStyle = '#fff';
       ctx.font = '14px sans-serif';
-      ctx.fillText('猴', s.x + 6, s.y + 19);
+      ctx.fillText('符', s.x + 6, s.y + 19);
     }
   }
 }
@@ -98,6 +121,6 @@ export function drawItems(ctx, world, items) {
 export function getBuffLabel(buff) {
   if (!buff) return '';
   if (buff.type === 'cloud') return `云 ${buff.timeLeft.toFixed(1)}s`;
-  if (buff.type === 'rocket') return `猴 ${buff.timeLeft.toFixed(1)}s`;
+  if (buff.type === 'charm') return `神行符 ${buff.timeLeft.toFixed(1)}s`;
   return '';
 }
