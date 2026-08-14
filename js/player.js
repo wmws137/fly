@@ -1,4 +1,5 @@
 import {
+  CAMERA_PLAYER_ANCHOR,
   CANVAS_H,
   CANVAS_W,
   INVENTORY_SIZE,
@@ -70,14 +71,36 @@ export function setDashFlash(player, theta) {
   player.dashFlash = { theta, until: performance.now() + 200 };
 }
 
-export function launchFromAim(player, holdTime, aimX, aimY) {
-  const t = Math.min(holdTime / MAX_HOLD, 1);
-  const speed = MIN_LAUNCH_SPEED + (MAX_LAUNCH_SPEED - MIN_LAUNCH_SPEED) * t;
+export function playerScreenY(player, cameraY) {
+  return player.y - cameraY;
+}
+
+/** 与 launchFromAim 共用：屏幕坐标系下解析发射角（弧度，45°～135°） */
+export function resolveLaunchAngle(player, aimX, aimY, cameraY) {
+  const sy = playerScreenY(player, cameraY);
   const dx = aimX - player.x;
-  const dy = -(aimY - player.y);
+  const dy = -(aimY - sy);
   let angle = Math.atan2(dy, dx);
   if (!Number.isFinite(angle)) angle = Math.PI / 2;
-  angle = Math.max(LAUNCH_ANGLE_MIN, Math.min(LAUNCH_ANGLE_MAX, angle));
+  return Math.max(LAUNCH_ANGLE_MIN, Math.min(LAUNCH_ANGLE_MAX, angle));
+}
+
+/** 限制在 45°～135° 的瞄准预览终点（屏幕坐标） */
+export function clampLaunchAim(player, aimX, aimY, cameraY) {
+  const sy = playerScreenY(player, cameraY);
+  const angle = resolveLaunchAngle(player, aimX, aimY, cameraY);
+  const dist = Math.max(48, Math.hypot(aimX - player.x, aimY - sy));
+  return {
+    x: player.x + Math.cos(angle) * dist,
+    y: sy - Math.sin(angle) * dist,
+    angle,
+  };
+}
+
+export function launchFromAim(player, holdTime, aimX, aimY, cameraY) {
+  const angle = resolveLaunchAngle(player, aimX, aimY, cameraY);
+  const t = Math.min(holdTime / MAX_HOLD, 1);
+  const speed = MIN_LAUNCH_SPEED + (MAX_LAUNCH_SPEED - MIN_LAUNCH_SPEED) * t;
   player.vx = speed * Math.cos(angle);
   player.vy = -speed * Math.sin(angle);
 }

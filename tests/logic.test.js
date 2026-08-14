@@ -4,44 +4,65 @@
  */
 import assert from 'node:assert/strict';
 import {
-  GRAVITY_G,
-  GRAVITY_UP,
+  CAMERA_PLAYER_ANCHOR,
+  CANVAS_H,
   LAUNCH_ANGLE_MIN,
   LAUNCH_ANGLE_MAX,
   MAX_HOLD,
-  MIN_LAUNCH_SPEED,
-  MAX_LAUNCH_SPEED,
   PLAYER_R,
-  LAUNCH_Y,
-  PX_TO_ZHANG,
 } from '../js/config.js';
-import { createPlayer, getHeightZhang, launchFromAim } from '../js/player.js';
-import { integratePlayer, terminalVy, wheelToTheta, keysToTheta } from '../js/physics.js';
+import {
+  clampLaunchAim,
+  createPlayer,
+  getHeightZhang,
+  launchFromAim,
+  resolveLaunchAngle,
+} from '../js/player.js';
+import { integratePlayer, wheelToTheta } from '../js/physics.js';
 import { checkLanding } from '../js/world.js';
 
 function approx(a, b, eps = 1) {
   assert.ok(Math.abs(a - b) <= eps, `${a} != ${b}`);
 }
 
+function cameraY(player) {
+  return player.y - CANVAS_H * CAMERA_PLAYER_ANCHOR;
+}
+
 // 蓄力：满蓄应高于轻蓄
 {
   const p1 = createPlayer();
   const p2 = createPlayer();
-  launchFromAim(p1, 0.1, p1.x, 100);
-  launchFromAim(p2, MAX_HOLD, p2.x, 100);
+  const cam = cameraY(p1);
+  const sy = p1.y - cam;
+  launchFromAim(p1, 0.1, p1.x, sy - 80, cam);
+  launchFromAim(p2, MAX_HOLD, p2.x, sy - 80, cam);
   assert.ok(Math.hypot(p2.vx, p2.vy) > Math.hypot(p1.vx, p1.vy));
 }
 
 // 角度 clamp 45~135°
 {
   const p = createPlayer();
-  launchFromAim(p, MAX_HOLD, p.x + 500, p.y); // 试图平射
+  const cam = cameraY(p);
+  const sy = p.y - cam;
+  launchFromAim(p, MAX_HOLD, p.x + 500, sy, cam);
   const angle = Math.atan2(-p.vy, p.vx);
   assert.ok(angle >= LAUNCH_ANGLE_MIN - 0.01);
   assert.ok(angle <= LAUNCH_ANGLE_MAX + 0.01);
 }
 
-// 上升比下落慢（同 dt 内 |vy| 增量）
+// 预览与发射角度一致
+{
+  const p = createPlayer();
+  const cam = cameraY(p);
+  const rawX = 50;
+  const rawY = 400;
+  const preview = clampLaunchAim(p, rawX, rawY, cam);
+  const launchAngle = resolveLaunchAngle(p, rawX, rawY, cam);
+  approx(preview.angle, launchAngle, 0.001);
+}
+
+// 上升比下落慢
 {
   const up = createPlayer();
   up.vy = -200;
@@ -74,17 +95,12 @@ function approx(a, b, eps = 1) {
   approx(Math.sin(theta) * 180, 127, 2);
 }
 
-// 触地检测
+// 触地 / 虚空
 {
   const p = createPlayer();
   p.y = p.launchY + PLAYER_R;
   p.vy = 1;
   assert.equal(checkLanding(p), 'ground');
-}
-
-// 虚空检测
-{
-  const p = createPlayer();
   p.y = p.launchY + 400;
   assert.equal(checkLanding(p), 'void');
 }

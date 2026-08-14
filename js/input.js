@@ -31,7 +31,7 @@ export function createInput(canvas, getState) {
 
   window.addEventListener('keydown', (e) => {
     state.keys.add(e.key);
-    if (e.key === ' ' || e.key === 'Enter') e.preventDefault();
+    if (e.key === 'Enter') e.preventDefault();
     if (e.key === '1') state.useSlot = 0;
     if (e.key === '2') state.useSlot = 1;
     if (e.key === '3') state.useSlot = 2;
@@ -39,9 +39,11 @@ export function createInput(canvas, getState) {
 
   window.addEventListener('keyup', (e) => {
     state.keys.delete(e.key);
-    if (e.key === ' ' && state.charging && getState() === 'ready') {
-      tryRelease(state);
-    }
+  });
+
+  window.addEventListener('mousemove', (e) => {
+    if (getState() !== 'ready') return;
+    state.pointer = screenToCanvas(canvas, e.clientX, e.clientY);
   });
 
   canvas.addEventListener(
@@ -196,12 +198,11 @@ export function pollInput(input, gameState, resultElapsed) {
   input.releaseLaunch = false;
 
   if (gameState === 'title') {
-    if (input.keys.has('Enter') || input.keys.has(' ')) out.startGame = true;
+    if (input.keys.has('Enter')) out.startGame = true;
     return out;
   }
 
   if (gameState === 'ready') {
-    if (input.keys.has(' ')) input.charging = true;
     if (input.pointerDown) input.charging = true;
     out.charging = input.charging;
     if (releaseLaunch) out.releaseLaunch = true;
@@ -232,7 +233,7 @@ export function pollInput(input, gameState, resultElapsed) {
       out.restart = true;
       input.restart = false;
     }
-    if (input.keys.has('Enter') || input.keys.has(' ')) out.restart = true;
+    if (input.keys.has('Enter')) out.restart = true;
   }
 
   return out;

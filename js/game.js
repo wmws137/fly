@@ -125,36 +125,18 @@ function bindGlobalInput(game) {
     'keydown',
     (e) => {
       if (game.state === 'title') {
-        if (e.code === 'Space' || e.code === 'Enter') {
+        if (e.code === 'Enter') {
           enterReady(game);
           e.preventDefault();
         }
         return;
       }
       if (game.state === 'result') {
-        if ((e.code === 'Space' || e.code === 'Enter') && canRestart(game)) {
+        if (e.code === 'Enter' && canRestart(game)) {
           enterReady(game);
           e.preventDefault();
         }
         return;
-      }
-      if (game.state === 'ready' && e.code === 'Space') {
-        game.input.charging = true;
-        e.preventDefault();
-      }
-    },
-    true,
-  );
-
-  window.addEventListener(
-    'keyup',
-    (e) => {
-      if (game.state === 'ready' && e.code === 'Space' && game.input.charging) {
-        if (performance.now() >= game.input.ignoreReleaseUntil) {
-          game.input.releaseLaunch = true;
-        }
-        game.input.charging = false;
-        e.preventDefault();
       }
     },
     true,
@@ -222,7 +204,7 @@ function update(game, dt, intent, ts) {
       if (game.holdTime > MAX_HOLD) game.holdTime = MAX_HOLD;
     }
     if (intent.releaseLaunch && game.holdTime > 0.02) {
-      launchFromAim(player, game.holdTime, intent.aim.x, intent.aim.y);
+      launchFromAim(player, game.holdTime, intent.aim.x, intent.aim.y, world.cameraY);
       game.state = 'flying';
       game.holdTime = 0;
     }

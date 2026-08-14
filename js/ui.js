@@ -7,10 +7,12 @@ import {
   INV_SLOT_W,
   INV_START_X,
   INV_Y,
+  LAUNCH_ANGLE_MAX,
+  LAUNCH_ANGLE_MIN,
   MAX_HOLD,
   PLAYER_R,
 } from './config.js';
-import { getHeightZhang } from './player.js';
+import { clampLaunchAim, getHeightZhang, playerScreenY } from './player.js';
 import { getBuffLabel } from './items.js';
 import { terminalVy } from './physics.js';
 
@@ -113,14 +115,29 @@ export function drawChargeUi(ctx, player, holdTime, cameraY) {
 }
 
 export function drawAimLine(ctx, player, aim, cameraY) {
+  const sy = playerScreenY(player, cameraY);
+  const clamped = clampLaunchAim(player, aim.x, aim.y, cameraY);
+  const len = 72;
+
+  ctx.strokeStyle = 'rgba(255,255,255,0.12)';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.arc(player.x, sy, len, -LAUNCH_ANGLE_MAX, -LAUNCH_ANGLE_MIN, true);
+  ctx.stroke();
+
   ctx.strokeStyle = 'rgba(255,255,255,0.5)';
   ctx.setLineDash([6, 4]);
+  ctx.lineWidth = 2;
   ctx.beginPath();
-  const sy = player.y - cameraY;
   ctx.moveTo(player.x, sy);
-  ctx.lineTo(aim.x, aim.y);
+  ctx.lineTo(clamped.x, clamped.y);
   ctx.stroke();
   ctx.setLineDash([]);
+
+  ctx.fillStyle = 'rgba(255,235,59,0.85)';
+  ctx.beginPath();
+  ctx.arc(clamped.x, clamped.y, 5, 0, Math.PI * 2);
+  ctx.fill();
 }
 
 export function drawReadyHint(ctx) {
@@ -132,8 +149,8 @@ export function drawReadyHint(ctx) {
   ctx.fillText('蓄力起飞', CANVAS_W / 2, CANVAS_H - 108);
   ctx.fillStyle = '#fff';
   ctx.font = '14px sans-serif';
-  ctx.fillText('长按鼠标左键或空格蓄力', CANVAS_W / 2, CANVAS_H - 78);
-  ctx.fillText('松手发射 · 鼠标移动瞄准（45°～135°）', CANVAS_W / 2, CANVAS_H - 54);
+  ctx.fillText('长按鼠标左键蓄力', CANVAS_W / 2, CANVAS_H - 78);
+  ctx.fillText('松手发射 · 移动鼠标瞄准（45°～135°）', CANVAS_W / 2, CANVAS_H - 54);
   ctx.textAlign = 'left';
 }
 
