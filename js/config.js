@@ -18,7 +18,7 @@ export const GRAVITY_DOWN = 1.2;
 
 export const DASH_IMPULSE = 180;
 export const DASH_INTERVAL = 0.15;
-export const DASH_IDLE_STOP = 0.1;
+export const DASH_IDLE_STOP = 0.18;
 export const FRICTION = 0.92;
 
 export const TERMINAL_VY_BASE = 800;

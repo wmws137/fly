@@ -29,6 +29,7 @@ export function createInput(canvas, getState, getLaunchContext) {
     releaseAngle: null,
     startGame: false,
     ignoreReleaseUntil: 0,
+    pendingDash: null,
   };
 
   window.addEventListener('keydown', (e) => {
@@ -48,16 +49,15 @@ export function createInput(canvas, getState, getLaunchContext) {
     state.pointer = screenToCanvas(canvas, e.clientX, e.clientY);
   });
 
-  canvas.addEventListener(
-    'wheel',
-    (e) => {
-      e.preventDefault();
-      if (getState() !== 'flying') return;
-      const theta = wheelToTheta(e.deltaX, e.deltaY);
-      if (theta !== null) activateDash(state, theta);
-    },
-    { passive: false },
-  );
+  function onWheel(e) {
+    if (getState() !== 'flying') return;
+    e.preventDefault();
+    const theta = wheelToTheta(e.deltaX, e.deltaY);
+    if (theta !== null) queueDash(state, theta);
+  }
+
+  window.addEventListener('wheel', onWheel, { passive: false });
+  canvas.addEventListener('wheel', onWheel, { passive: false });
 
   canvas.addEventListener('contextmenu', (e) => e.preventDefault());
 
@@ -107,6 +107,13 @@ export function createInput(canvas, getState, getLaunchContext) {
   return state;
 }
 
+export function resetDashInput(input) {
+  input.dashTheta = null;
+  input.dashActive = false;
+  input.dashAccumulator = 0;
+  input.pendingDash = null;
+}
+
 export function markReadyInput(input) {
   input.charging = false;
   input.pointerDown = false;
@@ -137,10 +144,12 @@ export function releaseCharge(input) {
   return true;
 }
 
-function activateDash(state, theta) {
+function queueDash(state, theta) {
   state.dashTheta = theta;
   state.dashActive = true;
   state.lastDashInputTs = performance.now();
+  state.dashAccumulator = DASH_INTERVAL;
+  state.pendingDash = theta;
 }
 
 function inChargeZone(p) {
@@ -196,10 +205,7 @@ function onPointerUp(state) {
   }
   if (gs === 'flying' && inDashZone(state.pointer)) {
     const theta = tapToTheta(state.pointer);
-    if (theta !== null) {
-      activateDash(state, theta);
-      state.dashAccumulator = DASH_INTERVAL;
-    }
+    if (theta !== null) queueDash(state, theta);
   }
 }
 
@@ -243,7 +249,13 @@ export function pollInput(input, gameState, resultElapsed) {
   if (gameState === 'flying') {
     const now = performance.now();
     const keyTheta = keysToTheta(input.keys);
-    if (keyTheta !== null) activateDash(input, keyTheta);
+    if (keyTheta !== null) queueDash(input, keyTheta);
+
+    if (input.pendingDash !== null) {
+      out.dashFire = true;
+      out.dashTheta = input.pendingDash;
+      input.pendingDash = null;
+    }
 
     if (input.dashActive && now - input.lastDashInputTs > DASH_IDLE_STOP * 1000) {
       input.dashActive = false;
@@ -251,7 +263,11 @@ export function pollInput(input, gameState, resultElapsed) {
     }
 
     input.dashAccumulator += 1 / 60;
-    if (input.dashActive && input.dashTheta !== null && input.dashAccumulator >= DASH_INTERVAL) {
+    if (
+      input.dashActive &&
+      input.dashTheta !== null &&
+      input.dashAccumulator >= DASH_INTERVAL
+    ) {
       input.dashAccumulator = 0;
       out.dashFire = true;
       out.dashTheta = input.dashTheta;

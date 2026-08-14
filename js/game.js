@@ -5,7 +5,7 @@ import {
   MAX_HOLD,
   RESULT_DELAY,
 } from './config.js';
-import { createInput, markReadyInput, pollInput, releaseCharge, updatePointer } from './input.js';
+import { createInput, markReadyInput, pollInput, releaseCharge, resetDashInput, updatePointer } from './input.js';
 import { createItems, checkPickup, drawItems, resetItems, updateItems, useItem } from './items.js';
 import { createParticles, drawParticles, resetParticles, updateParticles } from './particles.js';
 import { applyDash, integratePlayer, updateBuff } from './physics.js';
@@ -215,6 +215,7 @@ function update(game, dt, intent, ts) {
       game.state = 'flying';
       game.holdTime = 0;
       game.launchAim = null;
+      resetDashInput(game.input);
     }
     return;
   }
