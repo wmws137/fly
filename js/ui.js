@@ -158,6 +158,14 @@ export function drawOverlay(ctx, title, lines, sub) {
   ctx.textAlign = 'left';
 }
 
+export function drawStateBadge(ctx, state) {
+  ctx.fillStyle = 'rgba(0,0,0,0.35)';
+  ctx.fillRect(CANVAS_W - 72, CANVAS_H - 22, 64, 18);
+  ctx.fillStyle = '#0f0';
+  ctx.font = '11px monospace';
+  ctx.fillText(state, CANVAS_W - 68, CANVAS_H - 9);
+}
+
 export function drawDebug(ctx, player) {
   if (!DEBUG) return;
   ctx.fillStyle = '#0f0';

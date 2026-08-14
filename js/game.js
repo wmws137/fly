@@ -13,6 +13,7 @@ import {
   getHeightZhang,
   launchFromAim,
   resetPlayer,
+  screenToCanvas,
   useInventorySlot,
 } from './player.js';
 import {
@@ -24,6 +25,7 @@ import {
   drawOverlay,
   drawPlayer,
   drawReadyHint,
+  drawStateBadge,
 } from './ui.js';
 import {
   applyWallBounds,
@@ -37,6 +39,8 @@ import {
 
 export function createGame(canvas) {
   const ctx = canvas.getContext('2d');
+  if (!ctx) throw new Error('Canvas 2D 不可用');
+
   const player = createPlayer();
   const world = createWorld();
   const items = createItems();
@@ -48,7 +52,7 @@ export function createGame(canvas) {
     player,
     world,
     items,
-    state: 'title',
+    state: 'ready',
     holdTime: 0,
     resultTime: 0,
     runHeight: 0,
@@ -57,26 +61,84 @@ export function createGame(canvas) {
   };
 
   game.input = createInput(canvas, () => game.state);
-  bindTitleFallback(game);
+  bindGlobalInput(game);
   resetRun(game);
+  markReadyInput(game.input);
   requestAnimationFrame((ts) => loop(game, ts));
   return game;
 }
 
-function bindTitleFallback(game) {
-  const begin = () => {
-    if (game.state !== 'title') return;
-    enterReady(game);
+function bindGlobalInput(game) {
+  const onDown = (clientX, clientY) => {
+    game.input.pointer = screenToCanvas(game.canvas, clientX, clientY);
+    if (game.state === 'title' || game.state === 'result') {
+      enterReady(game);
+      return;
+    }
+    if (game.state === 'ready') {
+      game.input.charging = true;
+    }
   };
 
-  game.canvas.addEventListener('click', begin);
-  window.addEventListener('keydown', (e) => {
-    if (game.state !== 'title') return;
-    if (e.code === 'Space' || e.code === 'Enter') {
-      enterReady(game);
-      e.preventDefault();
+  const onUp = () => {
+    if (game.state === 'ready' && game.input.charging) {
+      if (performance.now() >= game.input.ignoreReleaseUntil) {
+        game.input.releaseLaunch = true;
+      }
+      game.input.charging = false;
+      game.input.pointerDown = false;
     }
-  });
+  };
+
+  window.addEventListener(
+    'mousedown',
+    (e) => {
+      if (e.button !== 0) return;
+      onDown(e.clientX, e.clientY);
+    },
+    true,
+  );
+
+  window.addEventListener(
+    'mouseup',
+    (e) => {
+      if (e.button !== 0) return;
+      onUp();
+    },
+    true,
+  );
+
+  window.addEventListener(
+    'keydown',
+    (e) => {
+      if (game.state === 'title' || game.state === 'result') {
+        if (e.code === 'Space' || e.code === 'Enter') {
+          enterReady(game);
+          e.preventDefault();
+        }
+        return;
+      }
+      if (game.state === 'ready' && e.code === 'Space') {
+        game.input.charging = true;
+        e.preventDefault();
+      }
+    },
+    true,
+  );
+
+  window.addEventListener(
+    'keyup',
+    (e) => {
+      if (game.state === 'ready' && e.code === 'Space' && game.input.charging) {
+        if (performance.now() >= game.input.ignoreReleaseUntil) {
+          game.input.releaseLaunch = true;
+        }
+        game.input.charging = false;
+        e.preventDefault();
+      }
+    },
+    true,
+  );
 }
 
 function enterReady(game) {
@@ -138,7 +200,7 @@ function update(game, dt, intent, ts) {
       game.holdTime += dt;
       if (game.holdTime > MAX_HOLD) game.holdTime = MAX_HOLD;
     }
-    if (intent.releaseLaunch && game.holdTime > 0.05) {
+    if (intent.releaseLaunch && game.holdTime > 0.02) {
       launchFromAim(player, game.holdTime, intent.aim.x, intent.aim.y);
       game.state = 'flying';
       game.holdTime = 0;
@@ -224,5 +286,6 @@ function draw(game) {
     );
   }
 
+  drawStateBadge(ctx, state);
   drawDebug(ctx, player);
 }

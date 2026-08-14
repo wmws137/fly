@@ -4,24 +4,40 @@
 
 ## 在线游玩
 
-部署 GitHub Pages 后访问：`https://<username>.github.io/fly/`
+**https://wmws137.github.io/fly/**
 
-本地预览：
+## 本地打开（重要）
+
+本项目使用 ES Module，**不能直接双击 `index.html`**（浏览器会拦截模块加载）。
+
+### 方法一：一键启动（推荐，无需 Node.js）
+
+1. 双击 `start-local.bat`
+2. 浏览器打开 **http://127.0.0.1:8080/**
+
+### 方法二：Cursor / VS Code Live Server
+
+1. 安装 **Live Server** 扩展
+2. 右键 `index.html` → **Open with Live Server**
+
+### 方法三：Node.js
 
 ```bash
 cd d:\code\2
-npx --yes serve .
+npx serve .
 # 打开 http://localhost:3000
 ```
 
 ## 操作
 
-| 操作 | PC | 手机 |
-|---|---|---|
-| 开始 | 点击 / Enter | 点击 |
-| 蓄力发射 | 长按空格或底部中央 + 鼠标瞄准，松手发射 | 长按底部中央，松手发射 |
-| 蹬风 | 滚轮方向（上/左/右，无向下）；WASD/方向键；点击底部区 | 底部滑动（上/左/右） |
-| 道具 | 飞行中碰撞自动入包；点击槽位或按 1/2/3 使用 | 同左 |
+| 步骤 | PC |
+|---|---|
+| 1 | 打开页面后看到「已进入蓄力」 |
+| 2 | **按住**鼠标左键或空格蓄力（蓄力条上涨） |
+| 3 | **松手**发射 |
+| 4 | 飞行中滚轮 / WASD 蹬风；1/2/3 使用道具 |
+
+若页面右下角绿色状态字不是 `ready`/`flying`，或出现红色错误文字，请截图反馈。
 
 ## 文档
 
@@ -32,9 +48,9 @@ npx --yes serve .
 
 ## 部署 GitHub Pages
 
-1. 创建仓库 `fly`，推送本目录
+1. 推送本目录到 GitHub 仓库 `fly`
 2. Settings → Pages → Branch `main` / root
-3. 等待部署完成
+3. 访问 `https://<username>.github.io/fly/`
 
 ## 技术栈
 
