@@ -8,6 +8,7 @@ import {
   PLAYER_R,
 } from './config.js';
 import { addToInventory, inventoryHasSpace } from './player.js';
+import { spawnPickupBurst } from './particles.js';
 import { startBuff } from './physics.js';
 import { worldToScreen } from './world.js';
 
@@ -53,7 +54,7 @@ export function updateItems(items, player) {
   items.list = items.list.filter((it) => it.y < player.y + CANVAS_H + 200 && !it.taken);
 }
 
-export function checkPickup(items, player) {
+export function checkPickup(items, player, particles) {
   for (const it of items.list) {
     if (it.taken) continue;
     const dx = player.x - it.x;
@@ -63,6 +64,7 @@ export function checkPickup(items, player) {
       if (inventoryHasSpace(player)) {
         addToInventory(player, it.type);
         it.taken = true;
+        if (particles) spawnPickupBurst(particles, it.x, it.y);
       }
     }
   }

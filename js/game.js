@@ -7,6 +7,7 @@ import {
 } from './config.js';
 import { createInput, markReadyInput, pollInput } from './input.js';
 import { createItems, checkPickup, drawItems, resetItems, updateItems, useItem } from './items.js';
+import { createParticles, drawParticles, resetParticles, updateParticles } from './particles.js';
 import { applyDash, integratePlayer, updateBuff } from './physics.js';
 import {
   createPlayer,
@@ -44,6 +45,7 @@ export function createGame(canvas) {
   const player = createPlayer();
   const world = createWorld();
   const items = createItems();
+  const particles = createParticles();
 
   const game = {
     canvas,
@@ -52,7 +54,8 @@ export function createGame(canvas) {
     player,
     world,
     items,
-    state: 'ready',
+    particles,
+    state: 'title',
     holdTime: 0,
     resultTime: 0,
     runHeight: 0,
@@ -63,7 +66,6 @@ export function createGame(canvas) {
   game.input = createInput(canvas, () => game.state);
   bindGlobalInput(game);
   resetRun(game);
-  markReadyInput(game.input);
   requestAnimationFrame((ts) => loop(game, ts));
   return game;
 }
@@ -168,6 +170,7 @@ function resetRun(game) {
   resetPlayer(game.player);
   resetWorld(game.world, game.player);
   resetItems(game.items, game.player);
+  resetParticles(game.particles);
   game.holdTime = 0;
   game.runHeight = 0;
 }
@@ -222,7 +225,8 @@ function update(game, dt, intent, ts) {
     applyWallBounds(player);
     updateCamera(world, player);
     updateItems(items, player);
-    checkPickup(items, player);
+    checkPickup(items, player, game.particles);
+    updateParticles(game.particles, dt);
 
     const h = getHeightZhang(player);
     if (h > game.runHeight) game.runHeight = h;
@@ -251,6 +255,7 @@ function draw(game) {
   drawWorld(ctx, world);
   drawLaunchPad(ctx, world);
   drawItems(ctx, world, items);
+  drawParticles(ctx, world, game.particles);
   drawPlayer(ctx, world, player);
   drawDashZones(ctx, state);
 
@@ -266,7 +271,7 @@ function draw(game) {
       ctx,
       '飞 FLY',
       ['点击或按 Enter 开始', '蓄力 · 蹬风 · 道具 · 看你能飞多高'],
-      '进入后长按蓄力，松手发射',
+      '东方起飞 · GitHub Pages 即玩',
     );
   } else if (state === 'result') {
     drawHud(ctx, player, game.highScore);
@@ -281,6 +286,7 @@ function draw(game) {
       [
         `本局最高：${game.runHeight.toFixed(1)} 丈`,
         `历史最高：${game.highScore.toFixed(1)} 丈`,
+        '用了 1 次弹射',
       ],
       sub,
     );
