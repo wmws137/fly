@@ -32,6 +32,7 @@ import {
   drawOverlay,
   drawPlayer,
   drawReadyHint,
+  drawTitleScreen,
   drawStateBadge,
 } from './ui.js';
 import {
@@ -307,26 +308,20 @@ function draw(game) {
       game.input.dashActive,
     );
   } else if (state === 'title') {
-    drawOverlay(
-      ctx,
-      '飞 FLY',
-      ['点击或按 Enter 开始', '蓄力 · 蹬风 · 道具 · 看你能飞多高'],
-      '东方起飞 · GitHub Pages 即玩',
-    );
+    drawTitleScreen(ctx);
   } else if (state === 'result') {
     drawHud(ctx, player, game.highScore);
     const elapsed = (performance.now() - game.resultTime) / 1000;
     const sub =
       elapsed >= RESULT_DELAY
-        ? '点击或 Enter 重新开始'
+        ? '点击重新开始'
         : '结算中…';
     drawOverlay(
       ctx,
-      '本局结束',
+      '坠落',
       [
         `本局最高：${game.runHeight.toFixed(1)} 米`,
         `历史最高：${game.highScore.toFixed(1)} 米`,
-        '用了 1 次弹射',
       ],
       sub,
     );

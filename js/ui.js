@@ -195,7 +195,7 @@ export function drawReadyHint(ctx, player, cameraY, readyArmed) {
   const gap = invTop - playerBottom - 12;
   if (gap < 48) return;
 
-  const boxH = Math.min(76, gap);
+  const boxH = Math.min(56, gap);
   const boxY = playerBottom + 8 + (gap - boxH) * 0.5;
   const boxX = 20;
   const boxW = CANVAS_W - 40;
@@ -210,13 +210,24 @@ export function drawReadyHint(ctx, player, cameraY, readyArmed) {
   ctx.textAlign = 'center';
   ctx.fillStyle = '#ffeb3b';
   ctx.font = 'bold 16px sans-serif';
-  ctx.fillText('蓄力起飞', CANVAS_W / 2, midY - 16);
+  ctx.fillText('蓄力起飞', CANVAS_W / 2, midY - 10);
   ctx.fillStyle = '#fff';
   ctx.font = '13px sans-serif';
-  ctx.fillText(readyArmed ? '长按鼠标左键蓄力 · 松手发射' : '点击屏幕开始蓄力', CANVAS_W / 2, midY + 4);
-  if (readyArmed) {
-    ctx.fillText('移动鼠标瞄准（45°～135°）', CANVAS_W / 2, midY + 24);
-  }
+  ctx.fillText('长按屏幕或鼠标左键蓄力，松手起飞', CANVAS_W / 2, midY + 14);
+  ctx.textAlign = 'left';
+}
+
+export function drawTitleScreen(ctx) {
+  ctx.fillStyle = 'rgba(0,0,0,0.55)';
+  ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
+  ctx.textAlign = 'center';
+  ctx.fillStyle = '#fff';
+  ctx.font = 'bold 48px sans-serif';
+  ctx.fillText('飞', CANVAS_W / 2, CANVAS_H / 2 - 56);
+  ctx.font = 'bold 28px sans-serif';
+  ctx.fillText('FLY', CANVAS_W / 2, CANVAS_H / 2 - 12);
+  ctx.font = '16px sans-serif';
+  ctx.fillText('点击开始', CANVAS_W / 2, CANVAS_H / 2 + 32);
   ctx.textAlign = 'left';
 }
 
