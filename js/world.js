@@ -1,4 +1,7 @@
 import {
+  CAMERA_FOLLOW_DIST_REF,
+  CAMERA_FOLLOW_MAX,
+  CAMERA_FOLLOW_MIN,
   CAMERA_PLAYER_ANCHOR,
   CANVAS_H,
   CANVAS_W,
@@ -18,16 +21,31 @@ export function createWorld() {
 }
 
 export function resetWorld(world, player) {
-  world.cameraY = player.y - CANVAS_H * CAMERA_PLAYER_ANCHOR;
+  world.cameraY = getCameraTarget(player);
+}
+
+export function getCameraTarget(player) {
+  return player.y - CANVAS_H * CAMERA_PLAYER_ANCHOR;
 }
 
 export function worldToScreen(world, wx, wy) {
   return { x: wx, y: wy - world.cameraY };
 }
 
-export function updateCamera(world, player) {
-  const target = player.y - CANVAS_H * CAMERA_PLAYER_ANCHOR;
-  world.cameraY += (target - world.cameraY) * 0.12;
+/** 距离越远跟随越快，靠近时减速，持续平滑追踪 */
+export function updateCamera(world, player, dt) {
+  const target = getCameraTarget(player);
+  const diff = target - world.cameraY;
+  const absDiff = Math.abs(diff);
+  if (absDiff < 0.5) {
+    world.cameraY = target;
+    return;
+  }
+
+  const t = Math.min(1, absDiff / CAMERA_FOLLOW_DIST_REF);
+  const speed = CAMERA_FOLLOW_MIN + (CAMERA_FOLLOW_MAX - CAMERA_FOLLOW_MIN) * t;
+  const step = Math.min(absDiff, speed * dt);
+  world.cameraY += Math.sign(diff) * step;
 }
 
 export function applyWallBounds(player) {

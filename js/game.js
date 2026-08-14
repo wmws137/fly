@@ -200,6 +200,7 @@ function update(game, dt, intent, ts) {
   }
 
   if (state === 'ready') {
+    updateCamera(world, player, dt);
     game.launchAim = clampLaunchAim(
       player,
       game.input.pointer.x,
@@ -232,7 +233,7 @@ function update(game, dt, intent, ts) {
     updateBuff(player, dt);
     integratePlayer(player, dt);
     applyWallBounds(player);
-    updateCamera(world, player);
+    updateCamera(world, player, dt);
     updateItems(items, player);
     checkPickup(items, player, game.particles);
     updateParticles(game.particles, dt);

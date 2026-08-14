@@ -48,7 +48,14 @@ export const ROCKET_GLIDE_DECAY = 0.98;
 export const ROCKET_GLIDE_DURATION = 2.0;
 
 export const RESULT_DELAY = 0.5;
-export const CAMERA_PLAYER_ANCHOR = 0.35;
+/** 玩家在屏幕上的纵向锚点（0=顶，1=底；0.65≈偏下 1/3） */
+export const CAMERA_PLAYER_ANCHOR = 0.65;
+/** 相机与目标距离很小时的跟随速度 px/s */
+export const CAMERA_FOLLOW_MIN = 90;
+/** 相机与目标距离很远时的跟随速度 px/s */
+export const CAMERA_FOLLOW_MAX = 1500;
+/** 达到最大跟随速度的大致距离 px */
+export const CAMERA_FOLLOW_DIST_REF = 220;
 
 export const LS_HIGH_SCORE = 'fly_high_score';
 
