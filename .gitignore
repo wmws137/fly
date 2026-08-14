@@ -1,0 +1,8 @@
+# 临时提取文件
+_doc_extract.txt
+
+# 系统 / 编辑器
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
