@@ -160,10 +160,10 @@ export function drawOverlay(ctx, title, lines, sub) {
 
 export function drawStateBadge(ctx, state) {
   ctx.fillStyle = 'rgba(0,0,0,0.35)';
-  ctx.fillRect(CANVAS_W - 72, CANVAS_H - 22, 64, 18);
+  ctx.fillRect(CANVAS_W - 92, CANVAS_H - 22, 84, 18);
   ctx.fillStyle = '#0f0';
   ctx.font = '11px monospace';
-  ctx.fillText(state, CANVAS_W - 68, CANVAS_H - 9);
+  ctx.fillText(`${state} v6`, CANVAS_W - 88, CANVAS_H - 9);
 }
 
 export function drawDebug(ctx, player) {

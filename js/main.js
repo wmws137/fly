@@ -1,7 +1,11 @@
 function showBootError(err) {
   const box = document.createElement('pre');
-  box.style.cssText = 'color:#f88;padding:16px;white-space:pre-wrap;';
-  box.textContent = '游戏加载失败：\n' + (err && err.stack ? err.stack : String(err));
+  box.style.cssText = 'color:#f88;padding:16px;white-space:pre-wrap;max-width:720px;margin:0 auto;';
+  box.textContent =
+    '游戏加载失败：\n' +
+    (err && err.stack ? err.stack : String(err)) +
+    '\n\n当前路径：' +
+    location.href;
   document.body.appendChild(box);
 }
 
@@ -13,7 +17,7 @@ function fitCanvas(canvas) {
   canvas.style.height = h + 'px';
 }
 
-window.addEventListener('DOMContentLoaded', async () => {
+export function bootGame() {
   const canvas = document.getElementById('game');
   if (!canvas) {
     showBootError(new Error('找不到 canvas 元素'));
@@ -23,11 +27,16 @@ window.addEventListener('DOMContentLoaded', async () => {
   fitCanvas(canvas);
   window.addEventListener('resize', () => fitCanvas(canvas));
 
-  try {
-    const mod = await import('./game.js');
-    window.__flyGame = mod.createGame(canvas);
-    canvas.focus();
-  } catch (err) {
-    showBootError(err);
-  }
-});
+  return import('./game.js')
+    .then((mod) => {
+      window.__flyGame = mod.createGame(canvas);
+      canvas.focus();
+    })
+    .catch(showBootError);
+}
+
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', bootGame);
+} else {
+  bootGame();
+}

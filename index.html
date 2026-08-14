@@ -5,12 +5,42 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <title>飞 FLY</title>
+  <script>
+    (function () {
+      var p = location.pathname;
+      var base = '/';
+      if (p.endsWith('/')) base = p;
+      else if (/\.html$/i.test(p)) base = p.slice(0, p.lastIndexOf('/') + 1);
+      else base = p + '/';
+      window.__FLY_BASE__ = base;
+      var el = document.createElement('base');
+      el.href = base;
+      document.head.appendChild(el);
+    })();
+  </script>
   <link rel="stylesheet" href="css/style.css" />
 </head>
 <body>
+  <noscript>
+    <p style="color:#fff;padding:20px;">请启用 JavaScript 才能游玩。</p>
+  </noscript>
   <div id="wrap">
     <canvas id="game" width="360" height="640" tabindex="0"></canvas>
   </div>
-  <script type="module" src="js/main.js?v=5"></script>
+  <script type="module">
+    function showBootError(err) {
+      var box = document.createElement('pre');
+      box.style.cssText = 'color:#f88;padding:16px;white-space:pre-wrap;max-width:720px;margin:0 auto;';
+      box.textContent = '游戏加载失败（GitHub Pages 静态托管，无需后端）：\n' +
+        (err && err.stack ? err.stack : String(err)) +
+        '\n\n请确认访问地址为：' + location.origin + window.__FLY_BASE__;
+      document.body.appendChild(box);
+    }
+
+    var src = window.__FLY_BASE__ + 'js/main.js?v=6';
+    import(src).catch(function (err) {
+      showBootError(err);
+    });
+  </script>
 </body>
 </html>
