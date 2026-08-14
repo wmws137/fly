@@ -4,7 +4,9 @@
 
 ## 在线游玩
 
-**https://wmws137.github.io/fly/**（注意末尾 `/fly/`，无需后端）
+https://wmws137.github.io/fly/
+
+（注意末尾 `/fly/`，无需后端）
 
 这是纯前端 Canvas 游戏，GitHub Pages 只负责托管 HTML/JS 文件，**不需要服务器、数据库或串口**。
 
@@ -20,7 +22,7 @@
 ### 方法一：一键启动（推荐，无需 Node.js）
 
 1. 双击 `start-local.bat`
-2. 浏览器打开 **http://127.0.0.1:8080/**
+2. 浏览器打开 http://127.0.0.1:8080/
 
 ### 方法二：Cursor / VS Code Live Server
 
