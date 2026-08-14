@@ -126,14 +126,14 @@ export function drawAimLine(ctx, player, aim, cameraY) {
 export function drawReadyHint(ctx) {
   ctx.fillStyle = 'rgba(0,0,0,0.45)';
   ctx.fillRect(0, CANVAS_H - 130, CANVAS_W, 130);
-  ctx.fillStyle = '#fff';
+  ctx.fillStyle = '#ffeb3b';
   ctx.textAlign = 'center';
   ctx.font = 'bold 18px sans-serif';
-  ctx.fillText('蓄力起飞', CANVAS_W / 2, CANVAS_H - 100);
+  ctx.fillText('已进入蓄力', CANVAS_W / 2, CANVAS_H - 108);
+  ctx.fillStyle = '#fff';
   ctx.font = '14px sans-serif';
-  ctx.fillStyle = '#ddd';
-  ctx.fillText('长按底部中央或空格 · 松手发射', CANVAS_W / 2, CANVAS_H - 72);
-  ctx.fillText('鼠标瞄准 · 45°～135° 向上', CANVAS_W / 2, CANVAS_H - 48);
+  ctx.fillText('长按鼠标左键或空格蓄力', CANVAS_W / 2, CANVAS_H - 78);
+  ctx.fillText('松手发射 · 鼠标移动瞄准', CANVAS_W / 2, CANVAS_H - 54);
   ctx.textAlign = 'left';
 }
 

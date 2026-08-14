@@ -5,7 +5,7 @@ import {
   MAX_HOLD,
   RESULT_DELAY,
 } from './config.js';
-import { createInput, pollInput } from './input.js';
+import { createInput, markReadyInput, pollInput } from './input.js';
 import { createItems, checkPickup, drawItems, resetItems, updateItems, useItem } from './items.js';
 import { applyDash, integratePlayer, updateBuff } from './physics.js';
 import {
@@ -57,16 +57,39 @@ export function createGame(canvas) {
   };
 
   game.input = createInput(canvas, () => game.state);
-
+  bindTitleFallback(game);
   resetRun(game);
   requestAnimationFrame((ts) => loop(game, ts));
   return game;
 }
 
+function bindTitleFallback(game) {
+  const begin = () => {
+    if (game.state !== 'title') return;
+    enterReady(game);
+  };
+
+  game.canvas.addEventListener('click', begin);
+  window.addEventListener('keydown', (e) => {
+    if (game.state !== 'title') return;
+    if (e.code === 'Space' || e.code === 'Enter') {
+      enterReady(game);
+      e.preventDefault();
+    }
+  });
+}
+
+function enterReady(game) {
+  if (game.state !== 'title' && game.state !== 'result') return;
+  game.state = 'ready';
+  resetRun(game);
+  markReadyInput(game.input);
+}
+
 function loadHighScore() {
   try {
     return parseFloat(localStorage.getItem(LS_HIGH_SCORE) || '0') || 0;
-  } catch {
+  } catch (_err) {
     return 0;
   }
 }
@@ -74,7 +97,7 @@ function loadHighScore() {
 function saveHighScore(v) {
   try {
     localStorage.setItem(LS_HIGH_SCORE, String(v));
-  } catch {
+  } catch (_err) {
     /* ignore */
   }
 }
@@ -106,11 +129,7 @@ function update(game, dt, intent, ts) {
   const { player, world, items, state } = game;
 
   if (state === 'title') {
-    if (intent.startGame) {
-      game.state = 'ready';
-      resetRun(game);
-      if (intent.pointerStillDown) game.input.charging = true;
-    }
+    if (intent.startGame) enterReady(game);
     return;
   }
 
@@ -119,7 +138,7 @@ function update(game, dt, intent, ts) {
       game.holdTime += dt;
       if (game.holdTime > MAX_HOLD) game.holdTime = MAX_HOLD;
     }
-    if (intent.releaseLaunch) {
+    if (intent.releaseLaunch && game.holdTime > 0.05) {
       launchFromAim(player, game.holdTime, intent.aim.x, intent.aim.y);
       game.state = 'flying';
       game.holdTime = 0;
@@ -159,8 +178,7 @@ function update(game, dt, intent, ts) {
   }
 
   if (state === 'result' && intent.restart) {
-    game.state = 'ready';
-    resetRun(game);
+    enterReady(game);
   }
 }
 
@@ -185,8 +203,8 @@ function draw(game) {
     drawOverlay(
       ctx,
       '飞 FLY',
-      ['点击开始', '蓄力 · 蹬风 · 道具 · 看你能飞多高'],
-      'GitHub Pages 即玩',
+      ['点击或按 Enter 开始', '蓄力 · 蹬风 · 道具 · 看你能飞多高'],
+      '进入后长按蓄力，松手发射',
     );
   } else if (state === 'result') {
     drawHud(ctx, player, game.highScore);

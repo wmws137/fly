@@ -26,8 +26,7 @@ export function createInput(canvas, getState) {
     restart: false,
     releaseLaunch: false,
     startGame: false,
-    touchId: null,
-    touchOrigin: null,
+    ignoreReleaseUntil: 0,
   };
 
   window.addEventListener('keydown', (e) => {
@@ -36,17 +35,12 @@ export function createInput(canvas, getState) {
     if (e.key === '1') state.useSlot = 0;
     if (e.key === '2') state.useSlot = 1;
     if (e.key === '3') state.useSlot = 2;
-    if (getState() === 'title' && (e.key === 'Enter' || e.key === ' ')) {
-      state.startGame = true;
-    }
   });
 
   window.addEventListener('keyup', (e) => {
     state.keys.delete(e.key);
     if (e.key === ' ' && state.charging && getState() === 'ready') {
-      state.releaseLaunch = true;
-      state.charging = false;
-      state.pointerDown = false;
+      tryRelease(state);
     }
   });
 
@@ -63,113 +57,63 @@ export function createInput(canvas, getState) {
 
   canvas.addEventListener('contextmenu', (e) => e.preventDefault());
 
+  canvas.addEventListener('mousemove', (e) => {
+    state.pointer = screenToCanvas(canvas, e.clientX, e.clientY);
+  });
+
+  canvas.addEventListener('mousedown', (e) => {
+    if (e.button !== 0) return;
+    state.pointerDown = true;
+    state.pointer = screenToCanvas(canvas, e.clientX, e.clientY);
+    onPointerDown(state);
+  });
+
+  canvas.addEventListener('mouseup', (e) => {
+    if (e.button !== 0) return;
+    state.pointerDown = false;
+    state.pointer = screenToCanvas(canvas, e.clientX, e.clientY);
+    onPointerUp(state);
+  });
+
+  canvas.addEventListener('mouseleave', () => {
+    if (state.charging && getState() === 'ready') {
+      tryRelease(state);
+    }
+  });
+
+  canvas.addEventListener('pointerdown', (e) => {
+    if (e.pointerType === 'mouse') return;
+    e.preventDefault();
+    state.pointerDown = true;
+    state.pointer = screenToCanvas(canvas, e.clientX, e.clientY);
+    onPointerDown(state);
+  });
+
+  canvas.addEventListener('pointerup', (e) => {
+    if (e.pointerType === 'mouse') return;
+    state.pointerDown = false;
+    state.pointer = screenToCanvas(canvas, e.clientX, e.clientY);
+    onPointerUp(state);
+  });
+
   canvas.addEventListener('pointermove', (e) => {
     state.pointer = screenToCanvas(canvas, e.clientX, e.clientY);
   });
 
-  canvas.addEventListener('pointerdown', (e) => {
-    e.preventDefault();
-    canvas.setPointerCapture(e.pointerId);
-    state.pointerDown = true;
-    const p = screenToCanvas(canvas, e.clientX, e.clientY);
-    state.pointer = p;
-    onPointerDown(state, p);
-  });
-
-  canvas.addEventListener('pointerup', (e) => {
-    state.pointerDown = false;
-    const p = screenToCanvas(canvas, e.clientX, e.clientY);
-    state.pointer = p;
-    onPointerUp(state, p);
-    try {
-      canvas.releasePointerCapture(e.pointerId);
-    } catch {
-      /* ignore */
-    }
-  });
-
-  canvas.addEventListener('pointercancel', () => {
-    state.pointerDown = false;
-    state.charging = false;
-  });
-
-  canvas.addEventListener('click', () => {
-    if (getState() === 'title') state.startGame = true;
-  });
-
-  window.addEventListener(
-    'pointerdown',
-    (e) => {
-      if (getState() !== 'title') return;
-      if (e.target === canvas) return;
-      state.startGame = true;
-    },
-    { capture: true },
-  );
-
-  canvas.addEventListener(
-    'touchstart',
-    (e) => {
-      e.preventDefault();
-      const t = e.changedTouches[0];
-      const p = screenToCanvas(canvas, t.clientX, t.clientY);
-      state.pointer = p;
-      state.pointerDown = true;
-      state.touchId = t.identifier;
-      state.touchOrigin = { ...p };
-      onPointerDown(state, p);
-    },
-    { passive: false },
-  );
-
-  canvas.addEventListener(
-    'touchmove',
-    (e) => {
-      e.preventDefault();
-      if (getState() !== 'flying') return;
-      for (const t of e.changedTouches) {
-        if (t.identifier !== state.touchId) continue;
-        const p = screenToCanvas(canvas, t.clientX, t.clientY);
-        state.pointer = p;
-        const dx = p.x - state.touchOrigin.x;
-        const dy = -(p.y - state.touchOrigin.y);
-        if (Math.abs(dx) + Math.abs(dy) > 10) {
-          const theta = swipeToTheta(dx, dy);
-          if (theta !== null) activateDash(state, theta);
-        }
-      }
-    },
-    { passive: false },
-  );
-
-  canvas.addEventListener(
-    'touchend',
-    (e) => {
-      e.preventDefault();
-      state.pointerDown = false;
-      onPointerUp(state, state.pointer);
-      state.touchId = null;
-    },
-    { passive: false },
-  );
-
   return state;
+}
+
+export function markReadyInput(input) {
+  input.charging = false;
+  input.pointerDown = false;
+  input.releaseLaunch = false;
+  input.ignoreReleaseUntil = performance.now() + 300;
 }
 
 function activateDash(state, theta) {
   state.dashTheta = theta;
   state.dashActive = true;
   state.lastDashInputTs = performance.now();
-}
-
-function swipeToTheta(dx, dy) {
-  if (dy < 0) {
-    if (Math.abs(dx) < 1) return null;
-    dy = 0;
-  }
-  if (Math.abs(dx) + Math.abs(dy) < 1) return null;
-  const theta = Math.atan2(dy, dx);
-  return Math.max(0, Math.min(Math.PI, theta));
 }
 
 function inChargeZone(p) {
@@ -190,8 +134,9 @@ function tapToTheta(p) {
   return Math.max(0, Math.min(Math.PI, Math.atan2(dy, dx)));
 }
 
-function onPointerDown(state, p) {
+function onPointerDown(state) {
   const gs = state.getState();
+  const p = state.pointer;
   const slot = getInventorySlotAt(p.x, p.y);
   if (slot >= 0 && gs === 'flying') {
     state.useSlot = slot;
@@ -199,10 +144,6 @@ function onPointerDown(state, p) {
   }
   if (gs === 'title') {
     state.startGame = true;
-    return;
-  }
-  if (gs === 'ready' && inChargeZone(p)) {
-    state.charging = true;
     return;
   }
   if (gs === 'ready') {
@@ -214,16 +155,21 @@ function onPointerDown(state, p) {
   }
 }
 
-function onPointerUp(state, p) {
+function tryRelease(state) {
+  if (performance.now() < state.ignoreReleaseUntil) return;
+  state.releaseLaunch = true;
+  state.charging = false;
+  state.pointerDown = false;
+}
+
+function onPointerUp(state) {
   const gs = state.getState();
   if (gs === 'ready' && state.charging) {
-    state.releaseLaunch = true;
-    state.charging = false;
-    state.pointerDown = false;
+    tryRelease(state);
     return;
   }
-  if (gs === 'flying' && inDashZone(p)) {
-    const theta = tapToTheta(p);
+  if (gs === 'flying' && inDashZone(state.pointer)) {
+    const theta = tapToTheta(state.pointer);
     if (theta !== null) {
       activateDash(state, theta);
       state.dashAccumulator = DASH_INTERVAL;
@@ -235,13 +181,12 @@ export function pollInput(input, gameState, resultElapsed) {
   const out = {
     charging: false,
     releaseLaunch: false,
-    aim: { ...input.pointer },
+    aim: { x: input.pointer.x, y: input.pointer.y },
     dashFire: false,
     dashTheta: null,
     useSlot: input.useSlot,
     restart: false,
     startGame: input.startGame,
-    pointerStillDown: input.pointerDown,
   };
   const releaseLaunch = input.releaseLaunch;
   input.startGame = false;
@@ -254,8 +199,8 @@ export function pollInput(input, gameState, resultElapsed) {
   }
 
   if (gameState === 'ready') {
-    const spaceDown = input.keys.has(' ');
-    if (spaceDown || input.pointerDown) input.charging = true;
+    if (input.keys.has(' ')) input.charging = true;
+    if (input.pointerDown) input.charging = true;
     out.charging = input.charging;
     if (releaseLaunch) out.releaseLaunch = true;
     return out;
