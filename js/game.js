@@ -37,7 +37,6 @@ import {
 
 export function createGame(canvas) {
   const ctx = canvas.getContext('2d');
-  const input = createInput(canvas);
   const player = createPlayer();
   const world = createWorld();
   const items = createItems();
@@ -45,7 +44,7 @@ export function createGame(canvas) {
   const game = {
     canvas,
     ctx,
-    input,
+    input: null,
     player,
     world,
     items,
@@ -56,6 +55,8 @@ export function createGame(canvas) {
     highScore: loadHighScore(),
     lastTs: 0,
   };
+
+  game.input = createInput(canvas, () => game.state);
 
   resetRun(game);
   requestAnimationFrame((ts) => loop(game, ts));
@@ -108,6 +109,7 @@ function update(game, dt, intent, ts) {
     if (intent.startGame) {
       game.state = 'ready';
       resetRun(game);
+      if (intent.pointerStillDown) game.input.charging = true;
     }
     return;
   }

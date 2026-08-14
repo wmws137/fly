@@ -10,11 +10,13 @@ import {
 import { getInventorySlotAt, screenToCanvas } from './player.js';
 import { keysToTheta, wheelToTheta } from './physics.js';
 
-export function createInput(canvas) {
+export function createInput(canvas, getState) {
   const state = {
     canvas,
+    getState,
     keys: new Set(),
     pointer: { x: CANVAS_W / 2, y: 200 },
+    pointerDown: false,
     charging: false,
     dashTheta: null,
     dashActive: false,
@@ -26,7 +28,6 @@ export function createInput(canvas) {
     startGame: false,
     touchId: null,
     touchOrigin: null,
-    gameStateRef: 'title',
   };
 
   window.addEventListener('keydown', (e) => {
@@ -35,13 +36,17 @@ export function createInput(canvas) {
     if (e.key === '1') state.useSlot = 0;
     if (e.key === '2') state.useSlot = 1;
     if (e.key === '3') state.useSlot = 2;
+    if (getState() === 'title' && (e.key === 'Enter' || e.key === ' ')) {
+      state.startGame = true;
+    }
   });
 
   window.addEventListener('keyup', (e) => {
     state.keys.delete(e.key);
-    if (e.key === ' ' && state.charging && state.gameStateRef === 'ready') {
+    if (e.key === ' ' && state.charging && getState() === 'ready') {
       state.releaseLaunch = true;
       state.charging = false;
+      state.pointerDown = false;
     }
   });
 
@@ -49,28 +54,58 @@ export function createInput(canvas) {
     'wheel',
     (e) => {
       e.preventDefault();
-      if (state.gameStateRef !== 'flying') return;
+      if (getState() !== 'flying') return;
       const theta = wheelToTheta(e.deltaX, e.deltaY);
       if (theta !== null) activateDash(state, theta);
     },
     { passive: false },
   );
 
-  canvas.addEventListener('mousemove', (e) => {
+  canvas.addEventListener('contextmenu', (e) => e.preventDefault());
+
+  canvas.addEventListener('pointermove', (e) => {
     state.pointer = screenToCanvas(canvas, e.clientX, e.clientY);
   });
 
-  canvas.addEventListener('mousedown', (e) => {
+  canvas.addEventListener('pointerdown', (e) => {
+    e.preventDefault();
+    canvas.setPointerCapture(e.pointerId);
+    state.pointerDown = true;
     const p = screenToCanvas(canvas, e.clientX, e.clientY);
     state.pointer = p;
     onPointerDown(state, p);
   });
 
-  canvas.addEventListener('mouseup', (e) => {
+  canvas.addEventListener('pointerup', (e) => {
+    state.pointerDown = false;
     const p = screenToCanvas(canvas, e.clientX, e.clientY);
     state.pointer = p;
     onPointerUp(state, p);
+    try {
+      canvas.releasePointerCapture(e.pointerId);
+    } catch {
+      /* ignore */
+    }
   });
+
+  canvas.addEventListener('pointercancel', () => {
+    state.pointerDown = false;
+    state.charging = false;
+  });
+
+  canvas.addEventListener('click', () => {
+    if (getState() === 'title') state.startGame = true;
+  });
+
+  window.addEventListener(
+    'pointerdown',
+    (e) => {
+      if (getState() !== 'title') return;
+      if (e.target === canvas) return;
+      state.startGame = true;
+    },
+    { capture: true },
+  );
 
   canvas.addEventListener(
     'touchstart',
@@ -79,6 +114,7 @@ export function createInput(canvas) {
       const t = e.changedTouches[0];
       const p = screenToCanvas(canvas, t.clientX, t.clientY);
       state.pointer = p;
+      state.pointerDown = true;
       state.touchId = t.identifier;
       state.touchOrigin = { ...p };
       onPointerDown(state, p);
@@ -90,7 +126,7 @@ export function createInput(canvas) {
     'touchmove',
     (e) => {
       e.preventDefault();
-      if (state.gameStateRef !== 'flying') return;
+      if (getState() !== 'flying') return;
       for (const t of e.changedTouches) {
         if (t.identifier !== state.touchId) continue;
         const p = screenToCanvas(canvas, t.clientX, t.clientY);
@@ -110,6 +146,7 @@ export function createInput(canvas) {
     'touchend',
     (e) => {
       e.preventDefault();
+      state.pointerDown = false;
       onPointerUp(state, state.pointer);
       state.touchId = null;
     },
@@ -136,7 +173,7 @@ function swipeToTheta(dx, dy) {
 }
 
 function inChargeZone(p) {
-  return p.y > DASH_ZONE_TOP && Math.abs(p.x - LAUNCH_X) < CANVAS_W * 0.25;
+  return p.y > DASH_ZONE_TOP && Math.abs(p.x - LAUNCH_X) < CANVAS_W * 0.4;
 }
 
 function inDashZone(p) {
@@ -154,31 +191,38 @@ function tapToTheta(p) {
 }
 
 function onPointerDown(state, p) {
+  const gs = state.getState();
   const slot = getInventorySlotAt(p.x, p.y);
-  if (slot >= 0 && state.gameStateRef === 'flying') {
+  if (slot >= 0 && gs === 'flying') {
     state.useSlot = slot;
     return;
   }
-  if (state.gameStateRef === 'title') {
+  if (gs === 'title') {
     state.startGame = true;
     return;
   }
-  if (state.gameStateRef === 'ready' && inChargeZone(p)) {
+  if (gs === 'ready' && inChargeZone(p)) {
     state.charging = true;
     return;
   }
-  if (state.gameStateRef === 'result') {
+  if (gs === 'ready') {
+    state.charging = true;
+    return;
+  }
+  if (gs === 'result') {
     state.restart = true;
   }
 }
 
 function onPointerUp(state, p) {
-  if (state.gameStateRef === 'ready' && state.charging) {
+  const gs = state.getState();
+  if (gs === 'ready' && state.charging) {
     state.releaseLaunch = true;
     state.charging = false;
+    state.pointerDown = false;
     return;
   }
-  if (state.gameStateRef === 'flying' && inDashZone(p)) {
+  if (gs === 'flying' && inDashZone(p)) {
     const theta = tapToTheta(p);
     if (theta !== null) {
       activateDash(state, theta);
@@ -188,8 +232,6 @@ function onPointerUp(state, p) {
 }
 
 export function pollInput(input, gameState, resultElapsed) {
-  input.gameStateRef = gameState;
-
   const out = {
     charging: false,
     releaseLaunch: false,
@@ -199,15 +241,21 @@ export function pollInput(input, gameState, resultElapsed) {
     useSlot: input.useSlot,
     restart: false,
     startGame: input.startGame,
+    pointerStillDown: input.pointerDown,
   };
   const releaseLaunch = input.releaseLaunch;
   input.startGame = false;
   input.useSlot = null;
   input.releaseLaunch = false;
 
+  if (gameState === 'title') {
+    if (input.keys.has('Enter') || input.keys.has(' ')) out.startGame = true;
+    return out;
+  }
+
   if (gameState === 'ready') {
     const spaceDown = input.keys.has(' ');
-    if (spaceDown) input.charging = true;
+    if (spaceDown || input.pointerDown) input.charging = true;
     out.charging = input.charging;
     if (releaseLaunch) out.releaseLaunch = true;
     return out;
@@ -238,10 +286,6 @@ export function pollInput(input, gameState, resultElapsed) {
       input.restart = false;
     }
     if (input.keys.has('Enter') || input.keys.has(' ')) out.restart = true;
-  }
-
-  if (gameState === 'title' && out.startGame) {
-    /* keep */
   }
 
   return out;
